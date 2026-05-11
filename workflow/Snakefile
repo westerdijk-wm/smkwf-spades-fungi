@@ -6,9 +6,10 @@ include: "rules/common.smk"
 
 rule all:
     input:
-        "results/filtered/all.snvs.selected.vcf.gz",
-        "results/msa/snvs.fasta",
-        "results/phylogeny/fasttree-snvs.nwk",
+        expand("results/spades/{sample}/contigs.fasta", sample=samples.index),
+        # "results/filtered/all.snvs.selected.vcf.gz",
+        # "results/msa/snvs.fasta",
+        # "results/phylogeny/fasttree-snvs.nwk",
         # "results/annotated/all.vcf.gz",
         # "results/qc/multiqc.html",
         # "results/plots/depths.svg",
@@ -317,3 +318,55 @@ rule fasttree:
         extra="-gtr -gamma -nt",  # Additional arguments
     wrapper:
         "v7.3.0/bio/fasttree"
+
+
+# Assembly
+
+# rule spades_simple:
+#     input:
+#         r1="results/trimmed/{sample}-1.1.fastq.gz", # r1=temp("results/trimmed/{sample}-{unit}.1.fastq.gz"),
+#         r2="results/trimmed/{sample}-1.2.fastq.gz", # r2=temp("results/trimmed/{sample}-{unit}.2.fastq.gz"),
+#     output:
+#         contigs="spades/{sample}/contigs.fasta",
+#         scaffolds="spades/{sample}/scaffolds.fasta",
+#         fastg="spades/{sample}/assembly_graph.fastg"
+#     log:
+#         "logs/spades/{sample}.log"
+#     conda:
+#         "envs/spades.yaml"
+#     params:
+#         extra="--careful"
+#     threads:
+#         workflow.cores
+#     shell:
+#         """
+#         spades.py -1 {input.r1} -2 {input.r2} -t {threads} \
+#         -o spades/{wildcards.sample} {params} 2> {log}
+#         """
+
+
+rule spades_pe:
+    """
+    Assembles reads using SPAdes (works only for single lib at the moment)
+    """
+    input:
+        reads=lambda wildcards: [item for sublist in [["results/trimmed/{sample}-{unit}.1.fastq.gz".format(sample=wildcards.sample, unit=u),
+                                     "results/trimmed/{sample}-{unit}.2.fastq.gz".format(sample=wildcards.sample, unit=u)]
+                                      for u in units.loc[wildcards.sample].unit] for item in sublist]
+    output:
+        contigs="results/spades/{sample}/contigs.fasta",
+        scaffolds="results/spades/{sample}/scaffolds.fasta",
+        fastg="results/spades/{sample}/assembly_graph.fastg"
+        # "results/assemblies/{sample}/contigs.fasta"
+    log:
+        "logs/spades/{sample}.log",
+    conda:
+        "envs/spades.yaml" 
+    params:
+        input_param=lambda wildcards: " ".join(["--pe{unit}-1 results/trimmed/{sample}-{unit}.1.fastq.gz --pe{unit}-2 results/trimmed/{sample}-{unit}.2.fastq.gz".format(
+            sample=wildcards.sample, unit=u) for u in units.loc[wildcards.sample].unit]),
+        extra="--careful"
+    threads:
+        16
+    shell:
+        "spades.py {params} -t {threads} -o assemblies/{wildcards.sample}"
