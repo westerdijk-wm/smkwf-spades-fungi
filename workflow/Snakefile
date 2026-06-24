@@ -19,6 +19,20 @@ rule all:
 ##### Modules #####
 
 
+rule get_fastq_pe_gz:
+    output:
+        # the wildcard name must be accession, pointing to an SRA number
+        "resources/reads/{accession}_1.fastq.gz",
+        "resources/reads/{accession}_2.fastq.gz",
+    log:
+        "logs/fasterq-dump/{accession}.gz.log"
+    params:
+        extra="--skip-technical"
+    threads: 6  # defaults to 6
+    wrapper:
+        "v9.8.0/bio/sra-tools/fasterq-dump"
+
+
 # include: "rules/ref.smk"
 # skipped variants (vep)
 
@@ -370,3 +384,39 @@ rule spades_pe:
         16
     shell:
         "spades.py {params} -t {threads} -o assemblies/{wildcards.sample}"
+
+
+rule get_organelles:
+    input:
+        fastg="results/spades/{sample}/assembly_graph.fastg",
+    output:
+        mt="results/get_organelles/{sample}/fungus_mt.complete.graph1.1.path_sequence.fasta",
+        nr="results/get_organelles/{sample}/fungus_nr.complete.graph1.1.path_sequence.fasta",
+        csv="results/get_organelles/{sample}/slimmed_assembly_graph.csv",
+    log:
+        "logs/get_organelles/{sample}.log",
+    conda:
+        "envs/get_organelles.yaml"
+    params:
+        targets="fungus_nr,fungus_mt"
+    shell:
+        """
+        get_organelle_from_assembly.py -F {params.targets} -g {input.fastg} -o results/get_organelles/{wildcards.sample} 2> {log}
+        """
+
+
+rule filter_spades_contigs:
+    input:
+        contigs="results/spades/{sample}/contigs.fasta",
+        paths="resutlts/spades/{sample}/contigs.paths",
+        csv="results/get_organelles/{sample}/slimmed_assembly_graph.csv",
+    output:
+        "results/get_organelles/{sample}/filtered-contigs.fasta",
+    log:
+        "logs/filter_spades/{sample}.log",
+    # conda:
+    #     "envs/filter_spades.yaml"
+    shell:
+        """
+        perl filter_spades_contigs.pl --contigs {input.contigs} --paths {input.paths} --csv {input.csv} > {output} 2> {log}
+        """
