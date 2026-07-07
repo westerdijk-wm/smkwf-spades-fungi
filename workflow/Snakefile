@@ -370,8 +370,8 @@ rule spades_pe:
     output:
         contigs="results/spades/{sample}/contigs.fasta",
         scaffolds="results/spades/{sample}/scaffolds.fasta",
-        fastg="results/spades/{sample}/assembly_graph.fastg"
-        # "results/assemblies/{sample}/contigs.fasta"
+        fastg="results/spades/{sample}/assembly_graph.fastg",
+        dir=directory("results/spades/{sample}"),
     log:
         "logs/spades/{sample}.log",
     conda:
@@ -383,7 +383,9 @@ rule spades_pe:
     threads:
         16
     shell:
-        "spades.py {params} -t {threads} -o assemblies/{wildcards.sample}"
+        """
+	spades.py {params} -t {threads} -o {output.dir} 2>{log}
+	"""
 
 
 rule get_organelles:
