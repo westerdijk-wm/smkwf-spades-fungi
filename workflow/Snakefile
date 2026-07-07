@@ -371,6 +371,7 @@ rule spades_pe:
         contigs="results/spades/{sample}/contigs.fasta",
         scaffolds="results/spades/{sample}/scaffolds.fasta",
         fastg="results/spades/{sample}/assembly_graph.fastg",
+        paths="results/spades/{sample}/contigs.paths",
         dir=directory("results/spades/{sample}"),
     log:
         "logs/spades/{sample}.log",
@@ -403,22 +404,26 @@ rule get_organelles:
         targets="fungus_nr,fungus_mt"
     shell:
         """
-        get_organelle_from_assembly.py -F {params.targets} -g {input.fastg} -o results/get_organelles/{wildcards.sample} 2> {log}
+        get_organelle_from_assembly.py --overwrite -F {params.targets} -g {input.fastg} -o results/get_organelles/{wildcards.sample} 2> {log}
         """
 
 
 rule filter_spades_contigs:
     input:
         contigs="results/spades/{sample}/contigs.fasta",
-        paths="resutlts/spades/{sample}/contigs.paths",
-        csv="results/get_organelles/{sample}/slimmed_assembly_graph.csv",
+        paths=  "results/spades/{sample}/contigs.paths",
+        csv=    "results/get_organelles/{sample}/slimmed_assembly_graph.csv",
     output:
         "results/get_organelles/{sample}/filtered-contigs.fasta",
     log:
         "logs/filter_spades/{sample}.log",
+    params:
+        opts=lambda wildcards, input: f"--csv {input.csv} --paths {input.paths} --fasta {input.contigs}"
     # conda:
     #     "envs/filter_spades.yaml"
-    shell:
-        """
-        perl filter_spades_contigs.pl --contigs {input.contigs} --paths {input.paths} --csv {input.csv} > {output} 2> {log}
-        """
+    # shell:
+    #     """
+    #     perl filter_spades_contigs.pl --contigs {input.contigs} --paths {input.paths} --csv {input.csv} > {output} 2> {log}
+    #     """
+    script:
+        "scripts/filter_spades_contigs.sh"
